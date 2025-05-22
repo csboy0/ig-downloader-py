@@ -23,38 +23,65 @@ L = instaloader.Instaloader()
 def get_video_info(url):
     """Get video information using yt-dlp."""
     try:
-        # Extract video ID
-        if "youtu.be" in url:
-            video_id = url.split("/")[-1].split("?")[0]
-        else:
-            video_id = url.split("v=")[1].split("&")[0]
-        
-        logger.info(f"Attempting to get info for video ID: {video_id}")
-        
         # Configure yt-dlp options
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': True,
+            'format': 'best',
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
+            'geo_bypass': True,
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['android'],
+                    'player_skip': ['js', 'configs', 'webpage'],
+                }
+            },
+            'verbose': True,  # Enable verbose output for debugging
+            'dump_single_json': True,  # Get all available information
+            'no_playlist': True,  # Only download single video
+            'extract_flat': False,  # Get full video info
+            'force_generic_extractor': False,  # Use YouTube extractor
+            'youtube_include_dash_manifest': False,  # Skip DASH manifest
+            'youtube_include_hls_manifest': False,  # Skip HLS manifest
         }
+        
+        logger.info(f"Attempting to get info for URL: {url}")
         
         # Get video info
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
+            try:
+                info = ydl.extract_info(url, download=False)
+                logger.info(f"Successfully extracted info: {json.dumps(info, indent=2)}")
+            except Exception as e:
+                logger.error(f"Error during extraction: {str(e)}")
+                raise
             
             if not info:
                 raise Exception("Could not extract video information")
+            
+            # Log specific fields for debugging
+            logger.info(f"Title: {info.get('title')}")
+            logger.info(f"Duration: {info.get('duration')}")
+            logger.info(f"Uploader: {info.get('uploader')}")
+            logger.info(f"View count: {info.get('view_count')}")
+            logger.info(f"Video ID: {info.get('id')}")
             
             return {
                 'title': info.get('title', 'Unknown Title'),
                 'length': info.get('duration', 0),
                 'author': info.get('uploader', 'Unknown Author'),
                 'views': info.get('view_count', 0),
-                'video_id': video_id
+                'video_id': info.get('id', '')
             }
                 
     except Exception as e:
         logger.error(f"Error getting video info: {str(e)}")
+        # Log the full error traceback
+        import traceback
+        logger.error(f"Full error traceback: {traceback.format_exc()}")
         return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -123,12 +150,33 @@ async def download_youtube(update: Update, context: ContextTypes.DEFAULT_TYPE, u
                 'outtmpl': '%(id)s.%(ext)s',
                 'quiet': True,
                 'no_warnings': True,
+                'nocheckcertificate': True,
+                'geo_bypass': True,
+                'extractor_args': {
+                    'youtube': {
+                        'skip': ['dash', 'hls'],
+                        'player_client': ['android'],
+                        'player_skip': ['js', 'configs', 'webpage'],
+                    }
+                },
+                'verbose': True,  # Enable verbose output for debugging
+                'no_playlist': True,  # Only download single video
+                'force_generic_extractor': False,  # Use YouTube extractor
+                'youtube_include_dash_manifest': False,  # Skip DASH manifest
+                'youtube_include_hls_manifest': False,  # Skip HLS manifest
             }
             
             # Download the video
             await update.message.reply_text("Starting download... This might take a few minutes.")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                try:
+                    info = ydl.extract_info(url, download=True)
+                    logger.info(f"Successfully downloaded video: {json.dumps(info, indent=2)}")
+                except Exception as e:
+                    logger.error(f"Error during download: {str(e)}")
+                    logger.error(f"Full error traceback: {traceback.format_exc()}")
+                    raise
+                
                 file_path = f"{info['id']}.mp4"
             
             logger.info(f"Download completed: {file_path}")
