@@ -1,4 +1,5 @@
 python-telegram-bot==20.7
 pytube==15.0.0
 instaloader==4.10.1
-python-dotenv==1.0.0 
+python-dotenv==1.0.0
+yt-dlp==2024.3.10 
